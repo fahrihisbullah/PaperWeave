@@ -1,1 +1,42 @@
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap');
+@import url('https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600&display=swap');
+
 @import 'tailwindcss';
+
+@theme {
+  --font-serif: 'Instrument Serif', serif;
+  --font-sans: 'General Sans', system-ui, -apple-system, sans-serif;
+
+  --color-bg: #f7f6f2;
+  --color-surface: #ffffff;
+  --color-text: #28251d;
+  --color-text-muted: #7a7974;
+  --color-text-faint: #bab9b4;
+  --color-primary: #01696f;
+  --color-primary-bg: #e4efed;
+  --color-border: rgba(40, 37, 29, 0.08);
+  --color-divider: #eae8e4;
+}
+
+/* Base */
+html {
+  font-size: 15px;
+}
+
+body {
+  font-family:
+    'General Sans',
+    system-ui,
+    -apple-system,
+    sans-serif;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
+}
+
+/* Headings use Instrument Serif */
+@utility font-display {
+  font-family: 'Instrument Serif', serif;
+}

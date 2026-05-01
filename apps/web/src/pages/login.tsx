@@ -29,95 +29,54 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex bg-gray-50">
-      {/* Left Panel */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gray-900 items-center justify-center p-12">
-        <div className="max-w-md">
-          <div className="flex items-center gap-2 mb-8">
-            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-              <svg
-                className="w-6 h-6 text-white"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
-            </div>
-            <span className="text-white text-xl font-bold">PaperWeave</span>
-          </div>
-          <h2 className="text-3xl font-bold text-white mb-4">Welcome back</h2>
-          <p className="text-gray-400">
-            Sign in to continue managing your literature reviews and research papers.
-          </p>
+    <div className="flex min-h-screen items-center justify-center bg-[var(--color-bg)] px-4">
+      <div className="w-full max-w-[28rem]">
+        {/* Logo */}
+        <div className="mb-10 text-center">
+          <Link to="/" className="inline-flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-[var(--color-primary)]"></span>
+            <span className="font-display text-[2.2rem] leading-none">PaperWeave</span>
+          </Link>
         </div>
-      </div>
 
-      {/* Right Panel - Form */}
-      <div className="flex-1 flex items-center justify-center p-8">
-        <div className="w-full max-w-md">
-          <div className="lg:hidden mb-8">
-            <Link to="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <svg
-                  className="w-5 h-5 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                  />
-                </svg>
-              </div>
-              <span className="text-lg font-bold">PaperWeave</span>
-            </Link>
-          </div>
-
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Sign in</h1>
-          <p className="text-gray-500 mb-8">Enter your credentials to access your account</p>
+        {/* Card */}
+        <div className="rounded-[1.75rem] border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-sm">
+          <h1 className="mb-2 text-[1.85rem] font-semibold text-[var(--color-text)]">Sign in</h1>
+          <p className="mb-7 text-[15px] leading-relaxed text-[var(--color-text-muted)]">
+            Enter your credentials to continue
+          </p>
 
           {error && (
-            <div className="mb-6 p-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg">
+            <div className="mb-5 rounded-xl border border-red-100 bg-red-50 p-3.5 text-[14px] text-red-700">
               {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">
+              <label className="mb-2 block text-[13px] font-semibold tracking-[0.04em] text-[var(--color-text-muted)] uppercase">
                 Email
               </label>
               <input
-                id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
-                placeholder="you@example.com"
+                className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3 text-[15px] text-[var(--color-text)] transition-all focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30"
+                placeholder="you@university.edu"
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">
+              <label className="mb-2 block text-[13px] font-semibold tracking-[0.04em] text-[var(--color-text-muted)] uppercase">
                 Password
               </label>
               <input
-                id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3 text-[15px] text-[var(--color-text)] transition-all focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30"
                 placeholder="Enter your password"
               />
             </div>
@@ -125,19 +84,19 @@ export function LoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-2.5 px-4 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              className="w-full rounded-xl bg-[var(--color-primary)] px-4 py-3 text-[15px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               {isLoading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
-
-          <p className="mt-6 text-center text-sm text-gray-500">
-            Don&apos;t have an account?{' '}
-            <Link to="/register" className="text-blue-600 hover:text-blue-800 font-medium">
-              Sign up
-            </Link>
-          </p>
         </div>
+
+        <p className="mt-5 text-center text-[14px] text-[var(--color-text-faint)]">
+          Don&apos;t have an account?{' '}
+          <Link to="/register" className="font-medium text-[var(--color-primary)] hover:underline">
+            Sign up
+          </Link>
+        </p>
       </div>
     </div>
   )

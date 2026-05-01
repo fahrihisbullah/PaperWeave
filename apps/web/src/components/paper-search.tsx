@@ -26,7 +26,6 @@ export function PaperSearch({ projectId }: PaperSearchProps) {
   const handleAsk = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!question.trim()) return
-
     setIsAsking(true)
     setError('')
     setResult(null)
@@ -45,10 +44,12 @@ export function PaperSearch({ projectId }: PaperSearchProps) {
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-6">
-      <h3 className="text-lg font-semibold text-gray-900 mb-1">Ask Your Papers</h3>
-      <p className="text-sm text-gray-500 mb-4">
-        Ask questions and get AI-powered answers based on your uploaded papers.
+    <div className="rounded-[1.5rem] border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
+      <h3 className="mb-1.5 text-[1.2rem] font-semibold text-[var(--color-text)]">
+        Ask Your Papers
+      </h3>
+      <p className="mb-5 text-[14px] leading-relaxed text-[var(--color-text-faint)]">
+        Get AI answers with citations from your research
       </p>
 
       <form onSubmit={handleAsk} className="flex gap-2">
@@ -57,58 +58,45 @@ export function PaperSearch({ projectId }: PaperSearchProps) {
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
           placeholder="e.g. What methods are commonly used for..."
-          className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="flex-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3 text-[15px] text-[var(--color-text)] transition-all focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30"
           disabled={isAsking}
         />
         <button
           type="submit"
           disabled={isAsking || !question.trim()}
-          className="px-5 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors whitespace-nowrap"
+          className="whitespace-nowrap rounded-xl bg-[var(--color-primary)] px-4 py-3 text-[15px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
         >
-          {isAsking ? (
-            <span className="flex items-center gap-2">
-              <span className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white"></span>
-              Thinking...
-            </span>
-          ) : (
-            'Ask'
-          )}
+          {isAsking ? 'Thinking...' : 'Ask'}
         </button>
       </form>
 
-      {error && (
-        <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-sm text-red-700">{error}</p>
-        </div>
-      )}
+      {error && <p className="mt-3 text-[14px] text-red-600">{error}</p>}
 
       {result && (
-        <div className="mt-5 space-y-4">
-          {/* Answer */}
-          <div className="p-4 bg-blue-50 border border-blue-100 rounded-lg">
-            <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
+        <div className="mt-5">
+          <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
+            <p className="whitespace-pre-wrap text-[15px] leading-[1.75] text-[var(--color-text)]">
               {result.answer}
             </p>
           </div>
 
-          {/* Sources */}
           {result.sources.length > 0 && (
-            <div>
-              <p className="text-xs font-medium text-gray-500 mb-2">Sources</p>
-              <div className="space-y-1.5">
+            <div className="mt-3">
+              <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-faint)]">
+                Sources
+              </p>
+              <div className="space-y-1">
                 {result.sources.map((source, i) => (
-                  <div key={i} className="flex items-center gap-2 text-xs text-gray-600">
-                    <span className="w-5 h-5 bg-gray-100 rounded flex items-center justify-center text-[10px] font-medium">
+                  <div key={i} className="flex items-center gap-2 text-[13px]">
+                    <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded bg-[var(--color-primary-bg)] text-[11px] font-semibold text-[var(--color-primary)]">
                       {i + 1}
                     </span>
-                    <span className="font-medium">{source.paper_title}</span>
-                    <span className="text-gray-400">
-                      p.{source.page_start}
-                      {source.page_start !== source.page_end ? `-${source.page_end}` : ''}
+                    <span className="font-medium text-[var(--color-text-muted)]">
+                      {source.paper_title}
                     </span>
-                    <span className="text-gray-300">·</span>
-                    <span className="text-gray-400">
-                      {(source.similarity * 100).toFixed(0)}% match
+                    <span className="text-[var(--color-text-faint)]">p.{source.page_start}</span>
+                    <span className="text-[var(--color-text-faint)]">
+                      {(source.similarity * 100).toFixed(0)}%
                     </span>
                   </div>
                 ))}

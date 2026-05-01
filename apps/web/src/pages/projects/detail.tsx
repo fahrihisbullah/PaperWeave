@@ -11,7 +11,6 @@ interface Project {
   description: string | null
   status: string
   created_at: string
-  updated_at: string
 }
 
 interface Paper {
@@ -39,11 +38,7 @@ export function ProjectDetailPage() {
       const data = await api.get<Project>(`/api/projects/${projectId}`)
       setProject(data)
     } catch (err) {
-      if (err instanceof ApiError) {
-        setError(err.message)
-      } else {
-        setError('Failed to fetch project')
-      }
+      setError(err instanceof ApiError ? err.message : 'Failed to fetch project')
     } finally {
       setIsLoading(false)
     }
@@ -53,8 +48,8 @@ export function ProjectDetailPage() {
     try {
       const data = await api.get<Paper[]>(`/api/papers?projectId=${projectId}`)
       setPapers(data)
-    } catch (err) {
-      console.error('Failed to fetch papers:', err)
+    } catch {
+      /* ignore */
     }
   }, [])
 
@@ -65,11 +60,9 @@ export function ProjectDetailPage() {
     }
   }, [id, fetchProject, fetchPapers])
 
-  // Auto-refresh when papers are processing
   const hasProcessing = papers.some((p) =>
     ['queued', 'extracting', 'summarizing'].includes(p.status)
   )
-
   useEffect(() => {
     if (!hasProcessing || !id) return
     const interval = setInterval(() => fetchPapers(id), 4000)
@@ -79,83 +72,90 @@ export function ProjectDetailPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <p className="text-gray-500">Loading...</p>
+        <div className="w-2.5 h-2.5 rounded-full bg-[var(--color-primary)] animate-pulse"></div>
       </div>
     )
   }
 
   if (error || !project) {
     return (
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-white rounded-lg shadow p-6 text-center">
-          <p className="text-red-600 mb-4">{error || 'Project not found'}</p>
-          <Link to="/projects" className="text-blue-600 hover:text-blue-800">
-            Back to Projects
-          </Link>
-        </div>
+      <div className="text-center py-16">
+        <p className="mb-4 text-[15px] text-red-600">{error || 'Project not found'}</p>
+        <Link to="/projects" className="text-[15px] text-[var(--color-primary)] hover:underline">
+          Back to Projects
+        </Link>
       </div>
     )
   }
 
+  const completedCount = papers.filter((p) => p.status === 'completed').length
+
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="mb-6">
-        <Link to="/projects" className="text-gray-600 hover:text-gray-800 text-sm">
-          &larr; Back to Projects
+    <div>
+      {/* Breadcrumb */}
+      <nav className="mb-8 flex items-center gap-2 text-[15px] text-[var(--color-text-faint)]">
+        <Link to="/projects" className="hover:text-[var(--color-text-muted)] transition-colors">
+          Projects
         </Link>
-      </div>
+        <span>/</span>
+        <span className="text-[var(--color-text-muted)]">{project.title}</span>
+      </nav>
 
       {/* Project Header */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex justify-between items-start mb-4">
-          <h1 className="text-2xl font-bold">{project.title}</h1>
-          <span className="px-3 py-1 text-sm bg-green-100 text-green-800 rounded-full">
-            {project.status}
-          </span>
-        </div>
-        {project.description && <p className="text-gray-600 mb-4">{project.description}</p>}
-        <p className="text-sm text-gray-400">
-          Created {new Date(project.created_at).toLocaleDateString()}
-        </p>
+      <div className="mb-10">
+        <h1 className="font-display text-[2.8rem] leading-none tracking-[-0.03em]">
+          {project.title}
+        </h1>
+        {project.description && (
+          <p className="mt-3 max-w-[60ch] text-[1.05rem] leading-[1.75] text-[var(--color-text-muted)]">
+            {project.description}
+          </p>
+        )}
       </div>
 
-      {/* Search / Ask */}
-      {papers.some((p) => p.status === 'completed') && (
-        <div className="mt-8">
+      {/* Search */}
+      {completedCount > 0 && (
+        <section className="mb-10">
           <PaperSearch projectId={id!} />
-        </div>
+        </section>
       )}
 
       {/* Synthesis Link */}
-      {papers.filter((p) => p.status === 'completed').length >= 2 && (
-        <div className="mt-6">
+      {completedCount >= 2 && (
+        <section className="mb-10">
           <Link
             to={`/projects/${id}/synthesis`}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm rounded-md hover:bg-indigo-700"
+            className="inline-flex items-center gap-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-3 text-[15px] font-medium text-[var(--color-text)] transition-all hover:border-[var(--color-primary)]/25 hover:text-[var(--color-primary)]"
           >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              className="w-[18px] h-[18px]"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                strokeWidth="2"
+                strokeWidth="1.5"
                 d="M13 10V3L4 14h7v7l9-11h-7z"
               />
             </svg>
-            Synthesis & Review
+            Synthesis & Literature Review
           </Link>
-        </div>
+        </section>
       )}
 
-      {/* Papers Section */}
-      <div className="mt-8">
-        <h2 className="text-xl font-semibold mb-4">Papers</h2>
-
+      {/* Upload */}
+      <section className="mb-10">
+        <h2 className="mb-4 text-[1.2rem] font-semibold text-[var(--color-text)]">Upload Papers</h2>
         <PaperUpload projectId={id!} onUploadComplete={() => fetchPapers(id!)} />
+      </section>
 
-        <div className="mt-6">
-          <PaperList papers={papers} projectId={id!} onRefresh={() => fetchPapers(id!)} />
-        </div>
-      </div>
+      {/* Paper List */}
+      <section>
+        <h2 className="mb-4 text-[1.2rem] font-semibold text-[var(--color-text)]">Papers</h2>
+        <PaperList papers={papers} projectId={id!} onRefresh={() => fetchPapers(id!)} />
+      </section>
     </div>
   )
 }

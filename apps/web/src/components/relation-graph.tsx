@@ -85,8 +85,8 @@ export function RelationGraph({ papers, relations, themes, onNodeSelect }: Relat
           border: '1px solid #d1d5db',
           borderRadius: '8px',
           padding: '10px 14px',
-          fontSize: '12px',
-          maxWidth: '160px',
+          fontSize: '13px',
+          maxWidth: '190px',
           opacity: isFiltered ? 0.3 : 1,
         },
       }
@@ -104,7 +104,7 @@ export function RelationGraph({ papers, relations, themes, onNodeSelect }: Relat
         target: rel.target_paper_id,
         label: rel.relation_type,
         style: { stroke: RELATION_COLORS[rel.relation_type] || '#94a3b8' },
-        labelStyle: { fontSize: '10px', fill: '#6b7280' },
+        labelStyle: { fontSize: '11px', fill: '#6b7280' },
         animated: rel.relation_type === 'contradicts',
       }))
 
@@ -128,7 +128,7 @@ export function RelationGraph({ papers, relations, themes, onNodeSelect }: Relat
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setSelectedTheme(null)}
-            className={`px-3 py-1 text-xs rounded-full border ${!selectedTheme ? 'bg-gray-800 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}
+            className={`rounded-full border px-3 py-1.5 text-[14px] ${!selectedTheme ? 'bg-gray-800 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}
           >
             All
           </button>
@@ -136,7 +136,7 @@ export function RelationGraph({ papers, relations, themes, onNodeSelect }: Relat
             <button
               key={theme.id}
               onClick={() => setSelectedTheme(theme.id === selectedTheme ? null : theme.id)}
-              className={`px-3 py-1 text-xs rounded-full border ${selectedTheme === theme.id ? 'bg-gray-800 text-white' : 'hover:bg-gray-100'}`}
+              className={`rounded-full border px-3 py-1.5 text-[14px] ${selectedTheme === theme.id ? 'bg-gray-800 text-white' : 'hover:bg-gray-100'}`}
               style={{ borderColor: THEME_COLORS[i % THEME_COLORS.length] }}
             >
               {theme.title}
@@ -163,7 +163,7 @@ export function RelationGraph({ papers, relations, themes, onNodeSelect }: Relat
       </div>
 
       {/* Legend */}
-      <div className="flex flex-wrap gap-3 text-xs text-gray-600">
+      <div className="flex flex-wrap gap-3 text-[14px] text-gray-600">
         {Object.entries(RELATION_COLORS).map(([type, color]) => (
           <div key={type} className="flex items-center gap-1">
             <div className="w-3 h-0.5" style={{ backgroundColor: color }}></div>

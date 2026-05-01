@@ -3,9 +3,6 @@ import { api, ApiError } from '../lib/api'
 
 interface Paper {
   id: string
-  title: string | null
-  original_filename: string
-  status: string
 }
 
 interface PaperUploadProps {
@@ -22,12 +19,10 @@ export function PaperUpload({ projectId, onUploadComplete }: PaperUploadProps) {
 
   const uploadFiles = async (files: File[]) => {
     const pdfFiles = files.filter((f) => f.type === 'application/pdf')
-
     if (pdfFiles.length === 0) {
       setUploadError('Only PDF files are allowed')
       return
     }
-
     const oversized = pdfFiles.filter((f) => f.size > 20 * 1024 * 1024)
     if (oversized.length > 0) {
       setUploadError(`${oversized.length} file(s) exceed 20MB limit`)
@@ -37,7 +32,6 @@ export function PaperUpload({ projectId, onUploadComplete }: PaperUploadProps) {
     setIsUploading(true)
     setUploadError('')
     setUploadProgress([])
-
     const results: string[] = []
 
     for (const file of pdfFiles) {
@@ -45,28 +39,22 @@ export function PaperUpload({ projectId, onUploadComplete }: PaperUploadProps) {
         const formData = new FormData()
         formData.append('file', file)
         formData.append('projectId', projectId)
-
         await api.upload<Paper>('/api/papers/upload', formData)
         results.push(`✓ ${file.name}`)
       } catch (err) {
-        const msg = err instanceof ApiError ? err.message : 'Upload failed'
-        results.push(`✗ ${file.name}: ${msg}`)
+        results.push(`✗ ${file.name}: ${err instanceof ApiError ? err.message : 'Failed'}`)
       }
       setUploadProgress([...results])
     }
 
     setIsUploading(false)
     onUploadComplete()
-
-    // Clear progress after 5s
     setTimeout(() => setUploadProgress([]), 5000)
   }
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
-    if (files.length > 0) {
-      uploadFiles(files)
-    }
+    if (files.length > 0) uploadFiles(files)
     e.target.value = ''
   }
 
@@ -74,17 +62,16 @@ export function PaperUpload({ projectId, onUploadComplete }: PaperUploadProps) {
     e.preventDefault()
     setDragOver(false)
     const files = Array.from(e.dataTransfer.files)
-    if (files.length > 0) {
-      uploadFiles(files)
-    }
+    if (files.length > 0) uploadFiles(files)
   }
 
   return (
     <div>
-      {/* Drop Zone */}
       <div
-        className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-          dragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
+        className={`border border-dashed rounded-xl py-10 px-6 text-center transition-all cursor-pointer ${
+          dragOver
+            ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/[0.06]'
+            : 'border-[var(--color-primary)]/30 bg-[var(--color-primary)]/[0.02] hover:border-[var(--color-primary)]/60 hover:bg-[var(--color-primary)]/[0.04]'
         } ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}
         onDrop={handleDrop}
         onDragOver={(e) => {
@@ -92,64 +79,56 @@ export function PaperUpload({ projectId, onUploadComplete }: PaperUploadProps) {
           setDragOver(true)
         }}
         onDragLeave={() => setDragOver(false)}
+        onClick={() => fileInputRef.current?.click()}
       >
         {isUploading ? (
-          <div>
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-3"></div>
-            <p className="text-gray-600">Uploading {uploadProgress.length} file(s)...</p>
+          <div className="flex items-center justify-center gap-3">
+            <div className="w-2 h-2 rounded-full bg-[var(--color-primary)] animate-pulse"></div>
+            <p className="text-[15px] text-[var(--color-text-muted)]">Uploading...</p>
           </div>
         ) : (
           <div>
             <svg
-              className="mx-auto h-12 w-12 text-gray-400 mb-3"
-              stroke="currentColor"
+              className="mx-auto w-10 h-10 text-[var(--color-primary)]/50 mb-4"
               fill="none"
-              viewBox="0 0 48 48"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
             >
               <path
-                d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
+                strokeWidth="1.5"
+                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
               />
             </svg>
-            <p className="text-gray-600 mb-2">
-              Drag and drop PDFs here, or{' '}
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="text-blue-600 hover:text-blue-800 underline"
-              >
-                browse
-              </button>
+            <p className="text-[1.02rem] font-medium text-[var(--color-text)]">
+              Drop PDFs here or{' '}
+              <span className="text-[var(--color-primary)] underline underline-offset-2">
+                browse files
+              </span>
             </p>
-            <p className="text-xs text-gray-400">
-              PDF only, max 20MB each. Multiple files supported.
+            <p className="mt-2 text-[13px] text-[var(--color-text-faint)]">
+              PDF only · Max 20MB per file · Multiple files supported
             </p>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="application/pdf"
-              multiple
-              className="hidden"
-              onChange={handleFileInput}
-            />
           </div>
         )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/pdf"
+          multiple
+          className="hidden"
+          onChange={handleFileInput}
+        />
       </div>
 
-      {/* Upload feedback */}
-      {uploadError && (
-        <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-md">
-          <p className="text-sm text-red-700">{uploadError}</p>
-        </div>
-      )}
+      {uploadError && <p className="mt-3 text-[14px] text-red-600">{uploadError}</p>}
       {uploadProgress.length > 0 && (
-        <div className="mt-3 p-3 bg-gray-50 border border-gray-200 rounded-md">
-          <p className="text-xs font-medium text-gray-600 mb-1">Upload results:</p>
+        <div className="mt-4 space-y-1">
           {uploadProgress.map((msg, i) => (
             <p
               key={i}
-              className={`text-xs ${msg.startsWith('✓') ? 'text-green-700' : 'text-red-700'}`}
+              className={`text-[13px] ${msg.startsWith('✓') ? 'text-[var(--color-primary)]' : 'text-red-600'}`}
             >
               {msg}
             </p>
