@@ -119,6 +119,106 @@ analysisRouter.post('/trigger', async (c) => {
   }
 })
 
+// Retry a failed analysis
+analysisRouter.post('/retry', async (c) => {
+  const requestId = c.get('requestId')
+  const userId = c.get('user')?.id
+
+  if (!userId) {
+    return c.json(createApiError('UNAUTHORIZED', 'Not authenticated', requestId), 401)
+  }
+
+  try {
+    const body = await c.req.json()
+    const paperId = body.paperId as string | undefined
+
+    if (!paperId) {
+      return c.json(createApiError('VALIDATION_ERROR', 'paperId is required', requestId), 400)
+    }
+
+    // Verify user owns the paper
+    const [paper] = await db
+      .select()
+      .from(papers)
+      .where(and(eq(papers.id, paperId), eq(papers.uploaded_by, userId)))
+      .limit(1)
+
+    if (!paper) {
+      return c.json(createApiError('NOT_FOUND', 'Paper not found', requestId), 404)
+    }
+
+    // Only allow retry if paper is in failed state
+    if (paper.status !== 'failed') {
+      return c.json(
+        createApiError(
+          'CONFLICT',
+          `Cannot retry: paper status is "${paper.status}", expected "failed"`,
+          requestId
+        ),
+        409
+      )
+    }
+
+    // Get the last failed job to increment retry count
+    const [lastJob] = await db
+      .select()
+      .from(analysisJobs)
+      .where(and(eq(analysisJobs.paper_id, paperId), eq(analysisJobs.status, 'failed')))
+      .orderBy(desc(analysisJobs.created_at))
+      .limit(1)
+
+    const retryCount = (lastJob?.retry_count ?? 0) + 1
+    const MAX_RETRIES = 3
+
+    if (retryCount > MAX_RETRIES) {
+      return c.json(
+        createApiError(
+          'CONFLICT',
+          `Max retries (${MAX_RETRIES}) exceeded for this paper`,
+          requestId
+        ),
+        409
+      )
+    }
+
+    // Create new analysis job with incremented retry count
+    const [job] = await db
+      .insert(analysisJobs)
+      .values({
+        paper_id: paperId,
+        project_id: paper.project_id,
+        triggered_by: userId,
+        job_type: 'reanalyze_paper',
+        status: 'pending',
+        current_step: 'queued',
+        retry_count: retryCount,
+      })
+      .returning()
+
+    if (!job) {
+      throw new Error('Failed to create retry job')
+    }
+
+    // Reset paper status
+    await db
+      .update(papers)
+      .set({ status: 'queued', last_error: null, updated_at: new Date() })
+      .where(eq(papers.id, paperId))
+
+    logger.info('Analysis retry triggered', { requestId, jobId: job.id, paperId, retryCount })
+
+    // Fire-and-forget
+    runExtractionPipeline(job.id).catch((err) => {
+      logger.error('Pipeline retry error (unhandled)', { jobId: job.id, error: String(err) })
+    })
+
+    return c.json(createApiResponse(job, requestId), 201)
+  } catch (error) {
+    logger.error('Failed to retry analysis', { requestId, error })
+    return c.json(createApiError('DB_ERROR', 'Failed to retry analysis', requestId), 500)
+  }
+})
+
 // Get job status
 analysisRouter.get('/jobs/:id', async (c) => {
   const requestId = c.get('requestId')

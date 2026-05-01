@@ -126,10 +126,24 @@ export function PaperDetailPage() {
 
     try {
       await api.post<AnalysisJob>('/api/analysis/trigger', { paperId })
-      // Refresh paper to see status change
       await fetchPaper()
     } catch (err) {
       setAnalysisError(err instanceof ApiError ? err.message : 'Failed to trigger analysis')
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }
+
+  const handleRetry = async () => {
+    if (!paperId) return
+    setIsAnalyzing(true)
+    setAnalysisError('')
+
+    try {
+      await api.post<AnalysisJob>('/api/analysis/retry', { paperId })
+      await fetchPaper()
+    } catch (err) {
+      setAnalysisError(err instanceof ApiError ? err.message : 'Failed to retry analysis')
     } finally {
       setIsAnalyzing(false)
     }
@@ -200,13 +214,16 @@ export function PaperDetailPage() {
 
         {paper.status === 'failed' && (
           <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
-            <p className="text-sm text-red-700">Analysis failed. You can try again.</p>
+            <p className="text-sm text-red-700 font-medium">Analysis failed</p>
+            <p className="text-xs text-red-600 mt-1">
+              You can retry the analysis. Previous data will be cleaned up automatically.
+            </p>
             <button
-              onClick={handleAnalyze}
+              onClick={handleRetry}
               disabled={isAnalyzing}
-              className="mt-2 px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700"
+              className="mt-2 px-3 py-1.5 bg-red-600 text-white text-sm rounded hover:bg-red-700 disabled:opacity-50"
             >
-              Retry Analysis
+              {isAnalyzing ? 'Retrying...' : 'Retry Analysis'}
             </button>
           </div>
         )}

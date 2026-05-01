@@ -17,6 +17,34 @@ import { env } from '../env.js'
 type JobStatus = 'pending' | 'processing' | 'completed' | 'failed'
 type PaperStatus = 'uploaded' | 'queued' | 'extracting' | 'summarizing' | 'completed' | 'failed'
 
+// Guardrails
+const MAX_PAGES = 200
+const MAX_CHUNKS = 500
+const MAX_FILE_SIZE_MB = 50
+const PIPELINE_TIMEOUT_MS = 5 * 60 * 1000 // 5 minutes
+
+// Cost estimation (rough per-1K tokens)
+const COST_PER_1K_INPUT: Record<string, number> = {
+  'gpt-4o-mini': 0.00015,
+  'gpt-4o': 0.0025,
+  'claude-sonet-4-20250514': 0.003,
+  'llama-3.3-70b-versatile': 0, // free on Groq
+  'mixtral-8x7b-32768': 0, // free on Groq
+}
+const COST_PER_1K_OUTPUT: Record<string, number> = {
+  'gpt-4o-mini': 0.0006,
+  'gpt-4o': 0.01,
+  'claude-sonet-4-20250514': 0.015,
+  'llama-3.3-70b-versatile': 0,
+  'mixtral-8x7b-32768': 0,
+}
+
+function estimateCost(model: string, inputTokens: number, outputTokens: number): string {
+  const inputCost = (inputTokens / 1000) * (COST_PER_1K_INPUT[model] ?? 0.001)
+  const outputCost = (outputTokens / 1000) * (COST_PER_1K_OUTPUT[model] ?? 0.002)
+  return (inputCost + outputCost).toFixed(6)
+}
+
 async function updateJobStatus(jobId: string, status: JobStatus, step?: string, error?: string) {
   await db
     .update(analysisJobs)
@@ -77,8 +105,45 @@ function findQuoteInChunks(
 
 /**
  * Run the full analysis pipeline: extraction → chunking → summarization.
+ * Wrapped with a timeout guardrail.
  */
 export async function runExtractionPipeline(jobId: string): Promise<void> {
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(
+      () => reject(new Error(`Pipeline timed out after ${PIPELINE_TIMEOUT_MS / 1000}s`)),
+      PIPELINE_TIMEOUT_MS
+    )
+  )
+
+  try {
+    await Promise.race([runPipeline(jobId), timeoutPromise])
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('Pipeline failed (top-level)', { jobId, error: errorMessage })
+
+    // Update status if timeout
+    if (errorMessage.includes('timed out')) {
+      const [job] = await db.select().from(analysisJobs).where(eq(analysisJobs.id, jobId)).limit(1)
+      if (job) {
+        await db
+          .update(analysisJobs)
+          .set({
+            status: 'failed',
+            last_error: errorMessage,
+            completed_at: new Date(),
+            updated_at: new Date(),
+          })
+          .where(eq(analysisJobs.id, jobId))
+        await db
+          .update(papers)
+          .set({ status: 'failed', last_error: errorMessage, updated_at: new Date() })
+          .where(eq(papers.id, job.paper_id))
+      }
+    }
+  }
+}
+
+async function runPipeline(jobId: string): Promise<void> {
   // Fetch the job
   const [job] = await db.select().from(analysisJobs).where(eq(analysisJobs.id, jobId)).limit(1)
   if (!job) {
@@ -124,6 +189,20 @@ export async function runExtractionPipeline(jobId: string): Promise<void> {
       )
     }
 
+    // Guardrail: max pages
+    if (extraction.totalPages > MAX_PAGES) {
+      throw new Error(
+        `PDF has ${extraction.totalPages} pages, exceeding the limit of ${MAX_PAGES}. Please use a shorter document.`
+      )
+    }
+
+    // Guardrail: max file size (already validated at upload, but double-check)
+    if (buffer.length > MAX_FILE_SIZE_MB * 1024 * 1024) {
+      throw new Error(
+        `File size (${(buffer.length / 1024 / 1024).toFixed(1)}MB) exceeds limit of ${MAX_FILE_SIZE_MB}MB.`
+      )
+    }
+
     // Update paper with total pages and title from metadata
     await db
       .update(papers)
@@ -139,6 +218,13 @@ export async function runExtractionPipeline(jobId: string): Promise<void> {
     logger.info('Pipeline: chunking text', { jobId, pages: extraction.pages.length })
 
     const chunks = chunkPages(extraction.pages)
+
+    // Guardrail: max chunks
+    if (chunks.length > MAX_CHUNKS) {
+      throw new Error(
+        `Document produced ${chunks.length} chunks, exceeding the limit of ${MAX_CHUNKS}. The document may be too large for analysis.`
+      )
+    }
 
     // Step 5: Save chunks to database
     await updateJobStatus(jobId, 'processing', 'saving_chunks')
@@ -188,7 +274,13 @@ export async function runExtractionPipeline(jobId: string): Promise<void> {
 
     const aiResult = await aiProvider.generateInsight(prompt)
 
-    // Update job with AI metadata
+    // Update job with AI metadata + cost estimate
+    const costEstimate = estimateCost(
+      aiResult.modelName,
+      aiResult.inputTokens,
+      aiResult.outputTokens
+    )
+
     await db
       .update(analysisJobs)
       .set({
@@ -198,9 +290,17 @@ export async function runExtractionPipeline(jobId: string): Promise<void> {
         schema_version: SCHEMA_VERSION,
         input_token_count: aiResult.inputTokens,
         output_token_count: aiResult.outputTokens,
+        cost_estimate_usd: costEstimate,
         updated_at: new Date(),
       })
       .where(eq(analysisJobs.id, jobId))
+
+    logger.info('Pipeline: AI completed', {
+      jobId,
+      inputTokens: aiResult.inputTokens,
+      outputTokens: aiResult.outputTokens,
+      costUSD: costEstimate,
+    })
 
     // Step 7: Save insights
     await updateJobStatus(jobId, 'processing', 'saving_insights')
