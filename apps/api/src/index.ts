@@ -13,6 +13,10 @@ import { errorResponse, notFoundError } from './lib/error.js'
 import { projectsRouter } from './routes/projects.js'
 import { papersRouter } from './routes/papers.js'
 import { analysisRouter } from './routes/analysis.js'
+import { analysisBulkRouter } from './routes/analysis-bulk.js'
+import { synthesisRouter } from './routes/synthesis.js'
+import { draftsRouter } from './routes/drafts.js'
+import { searchRouter } from './routes/search.js'
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -96,6 +100,10 @@ app.on(['GET', 'POST'], '/api/auth/*', async (c) => {
 app.route('/api/projects', projectsRouter)
 app.route('/api/papers', papersRouter)
 app.route('/api/analysis', analysisRouter)
+app.route('/api/analysis/bulk', analysisBulkRouter)
+app.route('/api/synthesis', synthesisRouter)
+app.route('/api/drafts', draftsRouter)
+app.route('/api/search', searchRouter)
 
 app.onError((err, c) => {
   if (err instanceof HTTPException) {
