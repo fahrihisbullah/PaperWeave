@@ -5,6 +5,7 @@ import { google } from '@ai-sdk/google'
 import { groq } from '@ai-sdk/groq'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { paperInsightSchema, type PaperInsightOutput, type ModelProvider } from '../schema.js'
+import { synthesisOutputSchema, type SynthesisOutput } from '../prompts/synthesize.js'
 
 export interface AIProviderConfig {
   provider: ModelProvider
@@ -18,6 +19,18 @@ export interface AIGenerateResult {
   outputTokens: number
   modelProvider: string
   modelName: string
+}
+
+export interface AISynthesisResult {
+  synthesis: SynthesisOutput
+  inputTokens: number
+  outputTokens: number
+}
+
+export interface AITextResult {
+  text: string
+  inputTokens: number
+  outputTokens: number
 }
 
 function getModel(config: AIProviderConfig) {
@@ -42,7 +55,7 @@ function getModel(config: AIProviderConfig) {
 }
 
 /**
- * Create an AI provider that can generate structured paper insights.
+ * Create an AI provider that can generate structured paper insights, synthesis, and text.
  */
 export function createAIProvider(config: AIProviderConfig) {
   const model = getModel(config)
@@ -67,6 +80,41 @@ export function createAIProvider(config: AIProviderConfig) {
         outputTokens: result.usage?.outputTokens ?? 0,
         modelProvider: config.provider,
         modelName: config.model,
+      }
+    },
+
+    async generateSynthesis(prompt: string): Promise<AISynthesisResult> {
+      const result = await generateText({
+        model,
+        output: Output.object({ schema: synthesisOutputSchema }),
+        prompt,
+        temperature: 0.2,
+        maxOutputTokens: 4000,
+      })
+
+      if (!result.output) {
+        throw new Error('AI did not return a valid synthesis output')
+      }
+
+      return {
+        synthesis: result.output,
+        inputTokens: result.usage?.inputTokens ?? 0,
+        outputTokens: result.usage?.outputTokens ?? 0,
+      }
+    },
+
+    async generateDraft(prompt: string): Promise<AITextResult> {
+      const result = await generateText({
+        model,
+        prompt,
+        temperature: 0.3,
+        maxOutputTokens: 6000,
+      })
+
+      return {
+        text: result.text,
+        inputTokens: result.usage?.inputTokens ?? 0,
+        outputTokens: result.usage?.outputTokens ?? 0,
       }
     },
   }

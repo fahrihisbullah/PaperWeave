@@ -13,3 +13,12 @@ export {
   SCHEMA_VERSION,
   type ChunkForPrompt,
 } from './prompts/summarize.js'
+export {
+  synthesisOutputSchema,
+  buildSynthesisPrompt,
+  SYNTHESIS_PROMPT_VERSION,
+  type SynthesisOutput,
+  type PaperSummaryForSynthesis,
+} from './prompts/synthesize.js'
+export { buildDraftPrompt, DRAFT_PROMPT_VERSION, type DraftInput } from './prompts/draft.js'
+export { generateEmbedding, generateEmbeddings, EMBEDDING_DIMENSIONS } from './embeddings.js'
