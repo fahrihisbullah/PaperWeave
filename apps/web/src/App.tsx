@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './lib/auth-context'
 import { ProtectedRoute, PublicRoute } from './lib/protected-route'
+import { Layout } from './components/layout'
 import { HomePage } from './pages/home'
 import { LoginPage } from './pages/login'
 import { RegisterPage } from './pages/register'
@@ -9,6 +10,16 @@ import { ProjectListPage } from './pages/projects/list'
 import { CreateProjectPage } from './pages/projects/create'
 import { ProjectDetailPage } from './pages/projects/detail'
 import { PaperDetailPage } from './pages/projects/paper-detail'
+import { SynthesisPage } from './pages/projects/synthesis'
+import { DraftEditorPage } from './pages/projects/draft-editor'
+
+function ProtectedWithLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <ProtectedRoute>
+      <Layout>{children}</Layout>
+    </ProtectedRoute>
+  )
+}
 
 function App() {
   return (
@@ -37,33 +48,49 @@ function App() {
           <Route
             path="/projects"
             element={
-              <ProtectedRoute>
+              <ProtectedWithLayout>
                 <ProjectListPage />
-              </ProtectedRoute>
+              </ProtectedWithLayout>
             }
           />
           <Route
             path="/projects/new"
             element={
-              <ProtectedRoute>
+              <ProtectedWithLayout>
                 <CreateProjectPage />
-              </ProtectedRoute>
+              </ProtectedWithLayout>
             }
           />
           <Route
             path="/projects/:id"
             element={
-              <ProtectedRoute>
+              <ProtectedWithLayout>
                 <ProjectDetailPage />
-              </ProtectedRoute>
+              </ProtectedWithLayout>
             }
           />
           <Route
             path="/projects/:id/papers/:paperId"
             element={
-              <ProtectedRoute>
+              <ProtectedWithLayout>
                 <PaperDetailPage />
-              </ProtectedRoute>
+              </ProtectedWithLayout>
+            }
+          />
+          <Route
+            path="/projects/:id/synthesis"
+            element={
+              <ProtectedWithLayout>
+                <SynthesisPage />
+              </ProtectedWithLayout>
+            }
+          />
+          <Route
+            path="/projects/:id/drafts/:draftId"
+            element={
+              <ProtectedWithLayout>
+                <DraftEditorPage />
+              </ProtectedWithLayout>
             }
           />
         </Routes>
