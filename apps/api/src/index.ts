@@ -34,6 +34,7 @@ export const auth = betterAuth({
   },
   secret: env.AUTH_SECRET,
   baseURL: env.API_URL,
+  trustedOrigins: ['http://localhost:5173'],
 })
 
 const app = new Hono<AppEnv>()

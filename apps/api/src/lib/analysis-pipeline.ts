@@ -1,10 +1,18 @@
 import { eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { analysisJobs, paperChunks, papers } from '../db/schema.js'
+import { analysisJobs, paperChunks, papers, paperInsights, insightEvidence } from '../db/schema.js'
 import { supabase } from './supabase.js'
 import { extractPdfText } from './pdf-extractor.js'
 import { chunkPages } from './chunker.js'
 import { logger } from '@paperweave/shared'
+import {
+  createAIProvider,
+  buildSummarizePrompt,
+  PROMPT_VERSION,
+  SCHEMA_VERSION,
+} from '@paperweave/ai'
+import type { ChunkForPrompt } from '@paperweave/ai'
+import { env } from '../env.js'
 
 type JobStatus = 'pending' | 'processing' | 'completed' | 'failed'
 type PaperStatus = 'uploaded' | 'queued' | 'extracting' | 'summarizing' | 'completed' | 'failed'
@@ -35,8 +43,40 @@ async function updatePaperStatus(paperId: string, status: PaperStatus, error?: s
 }
 
 /**
- * Run the extraction and chunking pipeline for a given analysis job.
- * This is designed to be called asynchronously (fire-and-forget from the endpoint).
+ * Validate that a quote actually exists in the source chunks.
+ * Returns the chunk_id if found, null otherwise.
+ */
+function findQuoteInChunks(
+  quote: string,
+  page: number,
+  savedChunks: Array<{ id: string; page_start: number; page_end: number; content: string }>
+): string | null {
+  // Normalize quote for comparison
+  const normalizedQuote = quote.toLowerCase().replace(/\s+/g, ' ').trim()
+
+  for (const chunk of savedChunks) {
+    // Check if page matches
+    if (page < chunk.page_start || page > chunk.page_end) continue
+
+    // Check if quote exists in chunk content
+    const normalizedContent = chunk.content.toLowerCase().replace(/\s+/g, ' ')
+    if (normalizedContent.includes(normalizedQuote)) {
+      return chunk.id
+    }
+
+    // Fuzzy match: check if at least 60% of words match
+    const quoteWords = normalizedQuote.split(' ')
+    const matchedWords = quoteWords.filter((w) => normalizedContent.includes(w))
+    if (matchedWords.length / quoteWords.length >= 0.6) {
+      return chunk.id
+    }
+  }
+
+  return null
+}
+
+/**
+ * Run the full analysis pipeline: extraction → chunking → summarization.
  */
 export async function runExtractionPipeline(jobId: string): Promise<void> {
   // Fetch the job
@@ -128,7 +168,135 @@ export async function runExtractionPipeline(jobId: string): Promise<void> {
       )
     }
 
-    // Step 6: Mark as completed
+    // Step 6: Summarization with AI
+    await updateJobStatus(jobId, 'processing', 'summarizing')
+    await updatePaperStatus(paper.id, 'summarizing')
+    logger.info('Pipeline: summarizing with AI', { jobId, paperId: paper.id })
+
+    const chunksForPrompt: ChunkForPrompt[] = chunks.map((c) => ({
+      pageStart: c.pageStart,
+      pageEnd: c.pageEnd,
+      content: c.content,
+    }))
+
+    const prompt = buildSummarizePrompt(chunksForPrompt)
+
+    const aiProvider = createAIProvider({
+      provider: env.AI_MODEL_PROVIDER as 'openai' | 'anthropic' | 'gemini',
+      model: env.AI_MODEL_NAME,
+    })
+
+    const aiResult = await aiProvider.generateInsight(prompt)
+
+    // Update job with AI metadata
+    await db
+      .update(analysisJobs)
+      .set({
+        model_provider: aiResult.modelProvider,
+        model_name: aiResult.modelName,
+        prompt_version: PROMPT_VERSION,
+        schema_version: SCHEMA_VERSION,
+        input_token_count: aiResult.inputTokens,
+        output_token_count: aiResult.outputTokens,
+        updated_at: new Date(),
+      })
+      .where(eq(analysisJobs.id, jobId))
+
+    // Step 7: Save insights
+    await updateJobStatus(jobId, 'processing', 'saving_insights')
+    logger.info('Pipeline: saving insights', { jobId })
+
+    // Delete existing insights for this paper (in case of re-analysis)
+    await db.delete(paperInsights).where(eq(paperInsights.paper_id, paper.id))
+
+    const [savedInsight] = await db
+      .insert(paperInsights)
+      .values({
+        paper_id: paper.id,
+        project_id: paper.project_id,
+        analysis_job_id: jobId,
+        title: aiResult.insight.title,
+        authors: aiResult.insight.authors,
+        publication_year: aiResult.insight.publication_year,
+        research_problem: aiResult.insight.research_problem,
+        method: aiResult.insight.method,
+        dataset_or_object: aiResult.insight.dataset_or_object,
+        key_findings: aiResult.insight.key_findings,
+        limitations: aiResult.insight.limitations,
+        keywords: aiResult.insight.keywords,
+        summary_markdown: aiResult.insight.summary_markdown,
+        prompt_version: PROMPT_VERSION,
+        schema_version: SCHEMA_VERSION,
+        model_provider: aiResult.modelProvider,
+        model_name: aiResult.modelName,
+      })
+      .returning()
+
+    // Step 8: Validate and save evidence
+    if (savedInsight && aiResult.insight.evidence && aiResult.insight.evidence.length > 0) {
+      await updateJobStatus(jobId, 'processing', 'validating_evidence')
+      logger.info('Pipeline: validating evidence', {
+        jobId,
+        evidenceCount: aiResult.insight.evidence.length,
+      })
+
+      // Fetch saved chunks for validation
+      const savedChunks = await db
+        .select({
+          id: paperChunks.id,
+          page_start: paperChunks.page_start,
+          page_end: paperChunks.page_end,
+          content: paperChunks.content,
+        })
+        .from(paperChunks)
+        .where(eq(paperChunks.paper_id, paper.id))
+
+      const validEvidence: Array<{
+        paper_insight_id: string
+        paper_id: string
+        chunk_id: string
+        insight_field: string
+        claim_label: string | null
+        quote: string
+        page: number
+        confidence: 'low' | 'medium' | 'high'
+        explanation: string | null
+      }> = []
+
+      for (const ev of aiResult.insight.evidence) {
+        const chunkId = findQuoteInChunks(ev.quote, ev.page, savedChunks)
+        if (chunkId) {
+          validEvidence.push({
+            paper_insight_id: savedInsight.id,
+            paper_id: paper.id,
+            chunk_id: chunkId,
+            insight_field: ev.insight_field,
+            claim_label: ev.claim_label,
+            quote: ev.quote,
+            page: ev.page,
+            confidence: ev.confidence,
+            explanation: ev.explanation,
+          })
+        } else {
+          logger.warn('Evidence quote not found in chunks, skipping', {
+            jobId,
+            quote: ev.quote.substring(0, 80),
+            page: ev.page,
+          })
+        }
+      }
+
+      if (validEvidence.length > 0) {
+        await db.insert(insightEvidence).values(validEvidence)
+        logger.info('Pipeline: evidence saved', {
+          jobId,
+          valid: validEvidence.length,
+          total: aiResult.insight.evidence.length,
+        })
+      }
+    }
+
+    // Step 9: Mark as completed
     await updateJobStatus(jobId, 'completed', 'done')
     await updatePaperStatus(paper.id, 'completed')
 

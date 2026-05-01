@@ -8,6 +8,7 @@ import { LogoutPage } from './pages/logout'
 import { ProjectListPage } from './pages/projects/list'
 import { CreateProjectPage } from './pages/projects/create'
 import { ProjectDetailPage } from './pages/projects/detail'
+import { PaperDetailPage } from './pages/projects/paper-detail'
 
 function App() {
   return (
@@ -32,7 +33,7 @@ function App() {
             }
           />
           <Route path="/logout" element={<LogoutPage />} />
-          
+
           <Route
             path="/projects"
             element={
@@ -54,6 +55,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <ProjectDetailPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/projects/:id/papers/:paperId"
+            element={
+              <ProtectedRoute>
+                <PaperDetailPage />
               </ProtectedRoute>
             }
           />

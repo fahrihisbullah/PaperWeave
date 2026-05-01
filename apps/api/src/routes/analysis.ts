@@ -1,6 +1,13 @@
 import { Hono } from 'hono'
 import { db } from '../db/index.js'
-import { analysisJobs, paperChunks, papers, projects } from '../db/schema.js'
+import {
+  analysisJobs,
+  paperChunks,
+  papers,
+  projects,
+  paperInsights,
+  insightEvidence,
+} from '../db/schema.js'
 import { and, desc, eq } from 'drizzle-orm'
 import type { AppEnv } from '../types.js'
 import { createApiResponse, createApiError } from '@paperweave/shared'
@@ -221,5 +228,99 @@ analysisRouter.get('/chunks', async (c) => {
   } catch (error) {
     logger.error('Failed to fetch chunks', { requestId, error })
     return c.json(createApiError('DB_ERROR', 'Failed to fetch chunks', requestId), 500)
+  }
+})
+
+// Get insights for a paper
+analysisRouter.get('/insights', async (c) => {
+  const requestId = c.get('requestId')
+  const userId = c.get('user')?.id
+  const paperId = c.req.query('paperId')
+
+  if (!userId) {
+    return c.json(createApiError('UNAUTHORIZED', 'Not authenticated', requestId), 401)
+  }
+
+  if (!paperId) {
+    return c.json(
+      createApiError('VALIDATION_ERROR', 'paperId query param required', requestId),
+      400
+    )
+  }
+
+  try {
+    // Verify user owns the paper
+    const [paper] = await db
+      .select()
+      .from(papers)
+      .where(and(eq(papers.id, paperId), eq(papers.uploaded_by, userId)))
+      .limit(1)
+
+    if (!paper) {
+      return c.json(createApiError('NOT_FOUND', 'Paper not found', requestId), 404)
+    }
+
+    const insights = await db
+      .select()
+      .from(paperInsights)
+      .where(eq(paperInsights.paper_id, paperId))
+      .orderBy(desc(paperInsights.created_at))
+
+    return c.json(createApiResponse(insights, requestId))
+  } catch (error) {
+    logger.error('Failed to fetch insights', { requestId, error })
+    return c.json(createApiError('DB_ERROR', 'Failed to fetch insights', requestId), 500)
+  }
+})
+
+// Get evidence for an insight
+analysisRouter.get('/evidence', async (c) => {
+  const requestId = c.get('requestId')
+  const userId = c.get('user')?.id
+  const insightId = c.req.query('insightId')
+
+  if (!userId) {
+    return c.json(createApiError('UNAUTHORIZED', 'Not authenticated', requestId), 401)
+  }
+
+  if (!insightId) {
+    return c.json(
+      createApiError('VALIDATION_ERROR', 'insightId query param required', requestId),
+      400
+    )
+  }
+
+  try {
+    // Verify user owns the insight via paper
+    const [insight] = await db
+      .select()
+      .from(paperInsights)
+      .where(eq(paperInsights.id, insightId))
+      .limit(1)
+
+    if (!insight) {
+      return c.json(createApiError('NOT_FOUND', 'Insight not found', requestId), 404)
+    }
+
+    const [paper] = await db
+      .select()
+      .from(papers)
+      .where(and(eq(papers.id, insight.paper_id), eq(papers.uploaded_by, userId)))
+      .limit(1)
+
+    if (!paper) {
+      return c.json(createApiError('NOT_FOUND', 'Paper not found', requestId), 404)
+    }
+
+    const evidence = await db
+      .select()
+      .from(insightEvidence)
+      .where(eq(insightEvidence.paper_insight_id, insightId))
+      .orderBy(insightEvidence.page)
+
+    return c.json(createApiResponse(evidence, requestId))
+  } catch (error) {
+    logger.error('Failed to fetch evidence', { requestId, error })
+    return c.json(createApiError('DB_ERROR', 'Failed to fetch evidence', requestId), 500)
   }
 })

@@ -22,6 +22,13 @@
       "when": 1761955202000,
       "tag": "0002_analysis_jobs_and_chunks",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1761955203000,
+      "tag": "0003_paper_insights_and_evidence",
+      "breakpoints": true
     }
   ]
 }

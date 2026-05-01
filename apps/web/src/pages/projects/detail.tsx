@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { api, ApiError } from '../../lib/api'
 
 interface Project {
@@ -50,6 +50,7 @@ function PaperStatusBadge({ status }: { status: string }) {
 
 export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const [project, setProject] = useState<Project | null>(null)
   const [papers, setPapers] = useState<Paper[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -285,7 +286,11 @@ export function ProjectDetailPage() {
           ) : (
             <div className="bg-white rounded-lg shadow divide-y">
               {papers.map((paper) => (
-                <div key={paper.id} className="p-4 flex items-center justify-between">
+                <div
+                  key={paper.id}
+                  className="p-4 flex items-center justify-between hover:bg-gray-50 cursor-pointer transition-colors"
+                  onClick={() => navigate(`/projects/${id}/papers/${paper.id}`)}
+                >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <svg
@@ -311,7 +316,10 @@ export function ProjectDetailPage() {
                     </div>
                   </div>
                   <button
-                    onClick={() => handleDeletePaper(paper.id)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleDeletePaper(paper.id)
+                    }}
                     className="ml-4 text-gray-400 hover:text-red-600 transition-colors"
                     title="Delete paper"
                   >
