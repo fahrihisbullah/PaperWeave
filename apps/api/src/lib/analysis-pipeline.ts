@@ -10,8 +10,10 @@ import {
   buildSummarizePrompt,
   PROMPT_VERSION,
   SCHEMA_VERSION,
+  generateEmbeddings,
 } from '@paperweave/ai'
 import type { ChunkForPrompt } from '@paperweave/ai'
+import { sql } from 'drizzle-orm'
 import { env } from '../env.js'
 
 type JobStatus = 'pending' | 'processing' | 'completed' | 'failed'
@@ -254,7 +256,47 @@ async function runPipeline(jobId: string): Promise<void> {
       )
     }
 
-    // Step 6: Summarization with AI
+    // Step 6: Generate embeddings for chunks (if OPENAI_API_KEY available)
+    if (env.OPENAI_API_KEY && env.OPENAI_API_KEY !== 'sk-...') {
+      await updateJobStatus(jobId, 'processing', 'embedding')
+      logger.info('Pipeline: generating embeddings', { jobId, chunkCount: chunks.length })
+
+      try {
+        const texts = chunks.map((c) => c.content)
+        const EMBED_BATCH = 20
+        const savedChunkRows = await db
+          .select({ id: paperChunks.id })
+          .from(paperChunks)
+          .where(eq(paperChunks.paper_id, paper.id))
+          .orderBy(paperChunks.chunk_index)
+
+        for (let i = 0; i < texts.length; i += EMBED_BATCH) {
+          const batchTexts = texts.slice(i, i + EMBED_BATCH)
+          const batchIds = savedChunkRows.slice(i, i + EMBED_BATCH)
+          const embeddings = await generateEmbeddings(batchTexts)
+
+          for (let j = 0; j < embeddings.length; j++) {
+            const chunkRow = batchIds[j]
+            const embedding = embeddings[j]
+            if (chunkRow && embedding) {
+              await db.execute(
+                sql`UPDATE paper_chunks SET embedding = ${JSON.stringify(embedding)}::vector WHERE id = ${chunkRow.id}`
+              )
+            }
+          }
+        }
+
+        logger.info('Pipeline: embeddings saved', { jobId, count: chunks.length })
+      } catch (embErr) {
+        // Embedding is non-critical — log warning but continue
+        logger.warn('Pipeline: embedding generation failed (non-critical)', {
+          jobId,
+          error: embErr instanceof Error ? embErr.message : String(embErr),
+        })
+      }
+    }
+
+    // Step 7: Summarization with AI
     await updateJobStatus(jobId, 'processing', 'summarizing')
     await updatePaperStatus(paper.id, 'summarizing')
     logger.info('Pipeline: summarizing with AI', { jobId, paperId: paper.id })

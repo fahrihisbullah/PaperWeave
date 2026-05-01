@@ -29,6 +29,20 @@
       "when": 1761955203000,
       "tag": "0003_paper_insights_and_evidence",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1761955204000,
+      "tag": "0004_synthesis_and_drafts",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1761955205000,
+      "tag": "0005_pgvector_embeddings",
+      "breakpoints": true
     }
   ]
 }
