@@ -5,7 +5,13 @@ export {
   type PaperInsightOutput,
   type InsightEvidenceOutput,
 } from './schema.js'
-export { createAIProvider, type AIProviderConfig, type AIGenerateResult } from './provider/index.js'
+export {
+  createAIProvider,
+  type AIProviderConfig,
+  type AIGenerateResult,
+  type AISynthesisResult,
+  type AITextResult,
+} from './provider/index.js'
 export {
   SUMMARIZE_PAPER_PROMPT,
   buildSummarizePrompt,

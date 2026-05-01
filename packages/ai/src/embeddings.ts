@@ -1,30 +1,25 @@
-import { embed, embedMany } from 'ai'
-import { openai } from '@ai-sdk/openai'
+import { OpenAIEmbeddings } from '@langchain/openai'
 
-const EMBEDDING_MODEL = 'text-embedding-3-small'
 export const EMBEDDING_DIMENSIONS = 1536
 
+const embeddingsModel = new OpenAIEmbeddings({
+  model: 'text-embedding-3-small',
+  dimensions: EMBEDDING_DIMENSIONS,
+})
+
 /**
- * Generate embedding for a single text.
+ * Generate embedding for a single text using LangChain OpenAIEmbeddings.
  */
 export async function generateEmbedding(text: string): Promise<number[]> {
-  const { embedding } = await embed({
-    model: openai.embedding(EMBEDDING_MODEL),
-    value: text,
-  })
+  const embedding = await embeddingsModel.embedQuery(text)
   return embedding
 }
 
 /**
- * Generate embeddings for multiple texts in batch.
- * Automatically handles chunking for large batches.
+ * Generate embeddings for multiple texts in batch using LangChain.
  */
 export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
   if (texts.length === 0) return []
-
-  const { embeddings } = await embedMany({
-    model: openai.embedding(EMBEDDING_MODEL),
-    values: texts,
-  })
+  const embeddings = await embeddingsModel.embedDocuments(texts)
   return embeddings
 }
