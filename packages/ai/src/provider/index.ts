@@ -2,6 +2,8 @@ import { generateText, Output } from 'ai'
 import { openai } from '@ai-sdk/openai'
 import { anthropic } from '@ai-sdk/anthropic'
 import { google } from '@ai-sdk/google'
+import { groq } from '@ai-sdk/groq'
+import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { paperInsightSchema, type PaperInsightOutput, type ModelProvider } from '../schema.js'
 
 export interface AIProviderConfig {
@@ -26,6 +28,14 @@ function getModel(config: AIProviderConfig) {
       return anthropic(config.model)
     case 'gemini':
       return google(config.model)
+    case 'groq':
+      return groq(config.model)
+    case 'openrouter': {
+      const openrouter = createOpenRouter({
+        apiKey: config.apiKey || process.env.OPENROUTER_API_KEY,
+      })
+      return openrouter.chat(config.model)
+    }
     default:
       throw new Error(`Unsupported provider: ${config.provider}`)
   }

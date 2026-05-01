@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export const modelProviderEnum = z.enum(['openai', 'anthropic', 'gemini'])
+export const modelProviderEnum = z.enum(['openai', 'anthropic', 'gemini', 'groq', 'openrouter'])
 export type ModelProvider = z.infer<typeof modelProviderEnum>
 
 /**

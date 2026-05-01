@@ -31,7 +31,11 @@ export const aiEnvSchema = z.object({
   OPENAI_API_KEY: z.string().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
   GEMINI_API_KEY: z.string().optional(),
-  AI_MODEL_PROVIDER: z.enum(['openai', 'anthropic', 'gemini']).default('openai'),
+  GROQ_API_KEY: z.string().optional(),
+  OPENROUTER_API_KEY: z.string().optional(),
+  AI_MODEL_PROVIDER: z
+    .enum(['openai', 'anthropic', 'gemini', 'groq', 'openrouter'])
+    .default('openai'),
   AI_MODEL_NAME: z.string().default('gpt-4o-mini'),
 })
 
