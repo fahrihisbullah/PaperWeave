@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "allowJs": false,
+    "checkJs": false,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "composite": true,
+    "baseUrl": ".",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "skipLibCheck": true,
+    "paths": {
+      "@paperweave/shared": ["./packages/shared/src/index.ts"],
+      "@paperweave/shared/*": ["./packages/shared/src/*"],
+      "@paperweave/ai": ["./packages/ai/src/index.ts"],
+      "@paperweave/ai/*": ["./packages/ai/src/*"]
+    }
+  },
+  "exclude": ["node_modules", "dist"]
+}
