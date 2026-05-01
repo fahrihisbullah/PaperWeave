@@ -130,10 +130,7 @@ projectsRouter.post('/', async (c) => {
     const parsed = parseProjectInput(body)
 
     if (!parsed) {
-      return c.json(
-        createApiError('VALIDATION_ERROR', 'Invalid input', requestId),
-        400
-      )
+      return c.json(createApiError('VALIDATION_ERROR', 'Invalid input', requestId), 400)
     }
 
     const [newProject] = await runAsProjectUser(userId, (tx) =>
@@ -160,6 +157,54 @@ projectsRouter.post('/', async (c) => {
   }
 })
 
+// Update project
+projectsRouter.put('/:id', async (c) => {
+  const requestId = c.get('requestId')
+  const userId = c.get('user')?.id
+  const projectId = c.req.param('id')
+
+  if (!userId) {
+    return c.json(createApiError('UNAUTHORIZED', 'Not authenticated', requestId), 401)
+  }
+
+  try {
+    const body = await c.req.json()
+    const title = (body as { title?: string }).title?.trim()
+    const description = (body as { description?: string }).description?.trim() ?? null
+
+    if (!title) {
+      return c.json(createApiError('VALIDATION_ERROR', 'Title is required', requestId), 400)
+    }
+
+    const [existing] = await runAsProjectUser(userId, (tx) =>
+      tx
+        .select()
+        .from(projects)
+        .where(and(eq(projects.id, projectId), eq(projects.owner_id, userId)))
+        .limit(1)
+    )
+
+    if (!existing) {
+      return c.json(createApiError('NOT_FOUND', 'Project not found', requestId), 404)
+    }
+
+    const [updated] = await runAsProjectUser(userId, (tx) =>
+      tx
+        .update(projects)
+        .set({ title, description, updated_at: new Date() })
+        .where(eq(projects.id, projectId))
+        .returning()
+    )
+
+    logger.info('Project updated', { requestId, projectId, userId })
+    return c.json(createApiResponse(updated, requestId))
+  } catch (error) {
+    logger.error('Failed to update project', { requestId, error })
+    return c.json(createApiError('DB_ERROR', 'Failed to update project', requestId), 500)
+  }
+})
+
+// Delete project
 projectsRouter.delete('/:id', async (c) => {
   const requestId = c.get('requestId')
   const userId = c.get('user')?.id

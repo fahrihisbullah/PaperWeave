@@ -3,6 +3,93 @@ import { Link } from 'react-router-dom'
 import { api, ApiError } from '../../lib/api'
 import type { Project } from '@paperweave/shared'
 
+function EditProjectModal({
+  project,
+  onClose,
+  onSaved,
+}: {
+  project: ProjectWithStats
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const [title, setTitle] = useState(project.title)
+  const [description, setDescription] = useState(project.description || '')
+  const [isSaving, setIsSaving] = useState(false)
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!title.trim()) return
+    setIsSaving(true)
+    try {
+      await api.put(`/api/projects/${project.id}`, {
+        title: title.trim(),
+        description: description.trim() || null,
+      })
+      onSaved()
+      onClose()
+    } catch {
+      alert('Failed to update project')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-6 w-full max-w-md shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="text-base font-semibold mb-5">Edit Project</h2>
+        <form onSubmit={handleSave} className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1.5">
+              Title
+            </label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              required
+              className="w-full px-3.5 py-2.5 text-sm bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30 focus:border-[var(--color-primary)]"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1.5">
+              Description
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              className="w-full px-3.5 py-2.5 text-sm bg-[var(--color-bg)] border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30 focus:border-[var(--color-primary)] resize-none"
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSaving}
+              className="px-4 py-2 text-sm font-semibold bg-[var(--color-primary)] text-white rounded-lg hover:opacity-90 disabled:opacity-50"
+            >
+              {isSaving ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 interface Paper {
   id: string
   project_id: string
@@ -48,8 +135,28 @@ export function ProjectListPage() {
     }
   }
 
+  const [editingProject, setEditingProject] = useState<ProjectWithStats | null>(null)
+
   const totalPapers = projects.reduce((sum, p) => sum + (p.paperCount || 0), 0)
   const totalCompleted = projects.reduce((sum, p) => sum + (p.completedCount || 0), 0)
+
+  const handleDelete = async (projectId: string, e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!confirm('Delete this project and all its papers? This cannot be undone.')) return
+    try {
+      await api.delete(`/api/projects/${projectId}`)
+      fetchProjects()
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message : 'Failed to delete')
+    }
+  }
+
+  const handleEdit = (project: ProjectWithStats, e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setEditingProject(project)
+  }
 
   if (isLoading) {
     return (
@@ -142,13 +249,49 @@ export function ProjectListPage() {
                     <span>{new Date(project.created_at).toLocaleDateString()}</span>
                   </div>
                 </div>
-                <span className="ml-4 text-[15px] text-[var(--color-text-faint)] transition-colors group-hover:text-[var(--color-primary)]">
-                  Open
-                </span>
+                <div className="ml-4 flex items-center gap-1">
+                  <button
+                    onClick={(e) => handleEdit(project, e)}
+                    className="p-2 rounded-lg text-[var(--color-text-faint)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary-bg)] transition-colors"
+                    title="Edit project"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="1.5"
+                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                      />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={(e) => handleDelete(project.id, e)}
+                    className="p-2 rounded-lg text-[var(--color-text-faint)] hover:text-red-500 hover:bg-red-50 transition-colors"
+                    title="Delete project"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="1.5"
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                  </button>
+                </div>
               </div>
             </Link>
           ))}
         </div>
+      )}
+
+      {/* Edit Modal */}
+      {editingProject && (
+        <EditProjectModal
+          project={editingProject}
+          onClose={() => setEditingProject(null)}
+          onSaved={fetchProjects}
+        />
       )}
     </div>
   )
